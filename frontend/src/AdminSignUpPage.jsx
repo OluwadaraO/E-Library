@@ -1,21 +1,61 @@
+import React, {useState} from 'react';
 import { Link } from "react-router-dom";
+import { useAuth } from './Authentication';
+import { useNavigate } from 'react-router-dom';
 function AdminSignUpPage(){
+  const {adminSignUp} = useAuth();
+  const navigate = useNavigate();
+  const [userName, setUserName] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const handleUserSignUp = async(e) => {
+    e.preventDefault();
+    try{
+      const userData = {
+        userName,
+        password,
+        firstName,
+        lastName
+      }
+      await adminSignUp(userData);
+      navigate('/admin-login')
+    }catch(error){
+      console.error("Admin sgn up failed: ", error);
+    }
+  }
     return(
         <div>
-          <h1>Hello Student! Welcome to E-Library</h1>
+          <h1>Hello Admin! Welcome to E-Library</h1>
           <p>Already an admin? <Link to="/admin-login">Sign in instead!</Link></p>
-          <form>
+          <form onSubmit={handleUserSignUp}>
             <p>Please create an account</p>
-            <label>Student First Name: </label>
-            <input type="text" required/>
-            <label>Student Last Name: </label>
-            <input type="text" required/>
-            <label>Student ID(put the numbers only): </label>
-            <input type="number" required/>
+            <label>First Name: </label>
+            <input 
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required/>
+            <label>Last Name: </label>
+            <input 
+              type="text" 
+              value={lastName}
+              onChange={(e)=> setLastName(e.target.value)}
+              required/>
             <label>Username: </label>
-            <input type="text" required/>
+            <input 
+              type="text" 
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              required/>
             <label>Password: </label>
-            <input type="password" required></input>
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required/>
+            <button type='submit'>Create account!</button>
           </form>
         </div>
       )
