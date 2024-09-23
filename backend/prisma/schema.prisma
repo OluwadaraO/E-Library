@@ -21,3 +21,11 @@ model User{
   userName String @unique
   password String
 }
+
+model Admin{
+  id Int @id@default(autoincrement())
+  firstName String
+  lastName String
+  userName String @unique
+  password String
+}
