@@ -29,3 +29,14 @@ model Admin{
   userName String @unique
   password String
 }
+
+model Book {
+  id Int @id@default(autoincrement())
+  title String @unique
+  author String
+  image String?
+  genre String
+  publishingYear Int?
+  availabilityStatus Boolean @default(true)
+  createdAt DateTime @default(now())
+}

@@ -5,22 +5,43 @@ const app = express();
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
+
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Add this line to enable cookie parsing
+const cloudinaryName = process.env.CLOUDINARY_NAME;
+const cloudinaryAPIKey = process.env.CLOUDINARY_API_KEY;
+const cloudinaryKey = process.env.CLOUDINARY_KEY;
 
+const nodeEnv = process.env.NODE_ENV;
 
-const nodeEnv = process.env.NODE_ENV
+const multer = require('multer');
 const PORT = process.env.PORT;
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const pexelsAPI = process.env.PEXELS_API;
 const saltRounds = 14;
 const secretKey = process.env.JWT_SECRET_TOKEN;
 
 const frontendAddress = process.env.FRONTEND_ADDRESS
 
+cloudinary.config({
+    cloud_name: cloudinaryName,
+    api_key: cloudinaryAPIKey,
+    api_secret: cloudinaryKey,
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params:{
+        folder: 'book_images',
+        allowed_formats: ['jpg', 'png'],
+    },
+});
+const upload = multer({storage: storage})
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(cookieParser());  
@@ -154,7 +175,7 @@ app.get('/protected', async (req, res) => {
     } catch (error) {
         res.status(401).json("Oops! Token is not valid")
     }
-})
+});
 
 app.post('/logout', (req, res) => {
     res.clearCookie('token', {
@@ -163,6 +184,60 @@ app.post('/logout', (req, res) => {
         sameSite: 'strict',
     });
     res.status(200).json("Logged out successfully")
+});
+
+const fetchRandomPhoto = async() => {
+    try{
+        const response = await fetch(`https://api.pexels.com/v1/search?query=random&per_page=1&page=${Math.floor(Math.random() * 100) + 1}`, {
+            headers:{
+                Authorization: pexelsAPI,
+            },
+        });
+        const data = await response.json();
+        if (!response.ok){
+            throw new Error(`Error fetching data: ${data.error}`)
+        }
+        else{
+            return data.photos[0].src.original;
+        }
+    }catch(error){
+        console.error(error);
+        res.status(500).json({ error: 'Failed to get image' })
+    }
+}
+
+app.post('/upload-books', upload.single('bookImages'), async(req, res) => {
+    const {title, author, genre, publishingYear, availabilityStatus} = req.body;
+    try{
+        const existingBook = await prisma.book.findUnique({
+            where: {title}
+        })
+        if (existingBook){
+            res.status(400).json({message: "Oops! Book has already been added"})
+        }
+        let imageUrl;
+        if (req.file) {
+            imageUrl = req.file.path
+        }
+        else if (!req.file) {
+            imageUrl = await fetchRandomPhoto();
+        }
+        const newBook = await prisma.book.create({
+            data:{
+                title,
+                author,
+                image: imageUrl,
+                genre,
+                publishingYear,
+                availabilityStatus
+            }
+        })
+        res.status(201).json({message: `${newBook.title}, book has been added!`})
+    }
+    catch(error){
+        console.error(error);
+        res.status(500).json({message: "Failed to add this book. Please try again"})
+    }
 })
 
 app.listen(PORT, () => {
