@@ -39,4 +39,15 @@ model Book {
   publishingYear Int?
   availabilityStatus Boolean @default(true)
   createdAt DateTime @default(now())
+  likes Int      @default(0) // Add likes with a default value
+  Like             Like[]
+}
+
+model Like {
+  id      Int    @id @default(autoincrement())
+  userId  Int
+  bookId  Int
+  book    Book   @relation(fields: [bookId], references: [id])
+
+  @@unique([userId, bookId]) // Ensure each user can like each book only once
 }

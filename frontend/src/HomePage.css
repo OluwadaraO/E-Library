@@ -1,0 +1,21 @@
+.book-list{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.book-item{
+    border: 1px solid #ddd;
+    padding: 10px;
+    width: 200px;
+    text-align: center;
+}
+
+.book-image{
+    width: 100%;
+    height: auto;
+}
+
+.like{
+    color: black
+}
