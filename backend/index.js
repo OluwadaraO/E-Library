@@ -206,9 +206,88 @@ const fetchRandomPhoto = async() => {
     }
 }
 
+// Toggle like for a book
+app.post('/books/:id/toggle-like', async (req, res) => {
+    const { id } = req.params;
+    const userId = parseInt(req.body.userId, 10); // Ensure userId is an integer
+
+    try {
+        // Check if the user has already liked this book
+        const existingLike = await prisma.like.findUnique({
+            where: {
+                userId_bookId: {
+                    userId: userId,
+                    bookId: parseInt(id, 10),
+                },
+            },
+        });
+
+        let updatedBook;
+
+        if (existingLike) {
+            // If the like exists, remove it (unlike)
+            await prisma.like.delete({
+                where: {
+                    id: existingLike.id,
+                },
+            });
+
+            // Decrement likes, but ensure it does not go below zero
+            updatedBook = await prisma.book.update({
+                where: { id: parseInt(id, 10) },
+                data: {
+                    likes: {
+                        decrement: 1,
+                    },
+                },
+            });
+
+            // Ensure likes is not negative
+            if (updatedBook.likes < 0) {
+                updatedBook = await prisma.book.update({
+                    where: { id: parseInt(id, 10) },
+                    data: {
+                        likes: 0,
+                    },
+                });
+            }
+        } else {
+            // If the like doesn’t exist, create it (like)
+            await prisma.like.create({
+                data: {
+                    userId: userId,
+                    bookId: parseInt(id, 10),
+                },
+            });
+            updatedBook = await prisma.book.update({
+                where: { id: parseInt(id, 10) },
+                data: {
+                    likes: {
+                        increment: 1,
+                    },
+                },
+            });
+        }
+
+        res.status(200).json({ likes: updatedBook.likes, liked: !existingLike });
+    } catch (error) {
+        console.error('Error toggling like:', error);
+        res.status(500).json({ message: 'Failed to toggle like' });
+    }
+});
+
+
+
+
 app.post('/upload-books', upload.single('bookImages'), async(req, res) => {
-    const {title, author, genre, publishingYear, availabilityStatus} = req.body;
+    const {title, author, genre} = req.body;
+    let publishingYear = parseInt(req.body.publishingYear, 10);
+    let availabilityStatus = req.body.availabilityStatus === 'true';
+
     try{
+        if (isNaN(publishingYear)) {
+            return res.status(400).json({ message: 'Publishing year must be a valid integer.' });
+        }
         const existingBook = await prisma.book.findUnique({
             where: {title}
         })
@@ -239,6 +318,46 @@ app.post('/upload-books', upload.single('bookImages'), async(req, res) => {
         res.status(500).json({message: "Failed to add this book. Please try again"})
     }
 })
+
+app.get('/get-books', async (req, res) => {
+    const userId = parseInt(req.query.userId, 10); // Get the userId from query parameters
+
+    try {
+        // Retrieve all books with like count
+        const books = await prisma.book.findMany({
+            include: {
+                _count: {
+                    select: { Like: true }, // Get the total count of likes for each book
+                },
+            },
+        });
+
+        // Check if the current user has liked each book
+        const booksWithLikeStatus = await Promise.all(
+            books.map(async (book) => {
+                const liked = await prisma.like.findFirst({
+                    where: {
+                        userId: userId,
+                        bookId: book.id,
+                    },
+                });
+                return {
+                    ...book,
+                    likes: book._count.Like,
+                    liked: !!liked, // `liked` will be true if a like exists, otherwise false
+                };
+            })
+        );
+
+        res.json(booksWithLikeStatus);
+    } catch (error) {
+        console.error('Error fetching books:', error);
+        res.status(500).json({ message: 'Failed to fetch books' });
+    }
+});
+
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
