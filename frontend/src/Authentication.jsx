@@ -6,6 +6,7 @@ const AuthenticationContext = createContext();
 export const AuthenticationProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     // Function to handle user login
     const login = (user) => {
@@ -15,6 +16,7 @@ export const AuthenticationProvider = ({ children }) => {
 
     const adminLogin = (user) => {
         setIsAuthenticated(true);
+        setIsAdmin(true)
         setUser(user);
     }
 
@@ -73,6 +75,30 @@ export const AuthenticationProvider = ({ children }) => {
             if (response.ok) {
                 const data = await response.json();
                 setIsAuthenticated(true);
+                setIsAdmin(false)
+                setUser(data);
+            } else {
+                setIsAuthenticated(false);
+                setUser(null);
+            }
+        } catch (error) {
+            console.error('Session check error: ', error);
+            setIsAuthenticated(false);
+            setUser(null);
+        }
+    };
+
+    const checkAdminSession = async () => {
+        try {
+            const response = await fetch(`http://localhost:3000/admin-protected`, {
+                method: 'GET',
+                credentials: 'include',
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setIsAuthenticated(true);
+                setIsAdmin(true)
                 setUser(data);
             } else {
                 setIsAuthenticated(false);
@@ -95,7 +121,8 @@ export const AuthenticationProvider = ({ children }) => {
 
             if (response.ok) {
                 setUser(null); 
-                setIsAuthenticated(false); // Clear user state on successful logout
+                setIsAuthenticated(false);
+                setIsAdmin(false) // Clear user state on successful logout
             } else {
                 console.error('Logout failed');
             }
@@ -105,7 +132,12 @@ export const AuthenticationProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        checkUserSession();  // Check session when the component mounts
+        if (window.location.pathname.includes('admin')){
+            checkAdminSession()
+        }else{
+            checkUserSession();
+        }
+          // Check session when the component mounts
     }, []);
 
     return (

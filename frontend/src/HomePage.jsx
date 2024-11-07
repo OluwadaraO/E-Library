@@ -9,18 +9,18 @@ function HomePage(){
     const [books, setBooks] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedBook, setSelectedBook] = useState(null);
     const {user, isAuthenticated, logout} = useAuth()
     const navigate = useNavigate()
-
-    const userId = user.id
     useEffect(() => {
         if (!user || !isAuthenticated) {
             navigate('/'); // Redirect to /home if the user is authenticated
             return;
         }
-        const fetchBooks = async(userId) => {
+        const fetchBooks = async() => {
             try{
-                const response = await fetch(`http://localhost:3000/get-books?userId=${userId}`, {
+                const response = await fetch(`http://localhost:3000/get-books`, {
                     method: 'GET',
                     headers:  { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -34,7 +34,7 @@ function HomePage(){
                 setLoading(false)
             }
         }
-        fetchBooks(userId);
+        fetchBooks();
     }, [user, navigate, isAuthenticated])
 
     if (loading) {
@@ -55,6 +55,18 @@ function HomePage(){
             console.error(error);
         }
     }
+
+    const openModal = (book) => {
+        setSelectedBook(book);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setSelectedBook(null);
+        setIsModalOpen(false);
+    };
+
+
     const handleLikeToggle = async (bookId) => {
         try {
             const response = await fetch(`http://localhost:3000/books/${bookId}/toggle-like`, {
@@ -62,7 +74,7 @@ function HomePage(){
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ userId }), // Send userId with the request
+                credentials: 'include',// Send userId with the request
             });
             const data = await response.json();
 
@@ -103,9 +115,24 @@ return(
                             fontSize: '24px',
                         }}
                         />
+                    <button onClick={() => openModal(book)}>View Details</button>
                 </div>
             ))}
          </div>
+         {isModalOpen && selectedBook && (
+                <div className="modal-overlay" onClick={closeModal}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <img src={selectedBook.image} alt={selectedBook.title} className="modal-book-image" />
+                        <div className="modal-book-details">
+                            <h2>{selectedBook.title}</h2>
+                            <p><strong>Genre:</strong> {selectedBook.genre}</p>
+                            <p><strong>Published:</strong> {selectedBook.publishingYear}</p>
+                            <p><strong>Description: </strong> {selectedBook.description}</p>
+                        </div>
+                        <button onClick={closeModal}>Close</button>
+                    </div>
+                </div>
+            )}
     </div>
 )
 }
