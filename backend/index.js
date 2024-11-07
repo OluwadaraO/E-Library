@@ -177,6 +177,23 @@ app.get('/protected', async (req, res) => {
     }
 });
 
+app.get('/admin-protected', async(req, res) => {
+    const token = req.cookies.token;
+    if (!token) {
+        return res.status(401).json(" No token found, authorization denied")
+    }
+    try {
+        const decoded = jwt.verify(token, secretKey);
+        const user = await prisma.admin.findUnique({ where: { id: decoded.id } })
+        if (!user) {
+            res.status(401).json({ message: "Admin not found" })
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(401).json("Oops! Token is not valid")
+    }
+})
+
 app.post('/logout', (req, res) => {
     res.clearCookie('token', {
         httpOnly: true,
@@ -185,6 +202,21 @@ app.post('/logout', (req, res) => {
     });
     res.status(200).json("Logged out successfully")
 });
+
+const authenticateToken = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) {
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
+
+    jwt.verify(token, secretKey, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({ message: 'Invalid token' });
+        }
+        req.userId = decoded.id; // Attach userId to the request object
+        next();
+    });
+};
 
 const fetchRandomPhoto = async() => {
     try{
@@ -207,9 +239,9 @@ const fetchRandomPhoto = async() => {
 }
 
 // Toggle like for a book
-app.post('/books/:id/toggle-like', async (req, res) => {
+app.post('/books/:id/toggle-like', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    const userId = parseInt(req.body.userId, 10); // Ensure userId is an integer
+    const userId = req.userId; // Ensure userId is an integer
 
     try {
         // Check if the user has already liked this book
@@ -276,51 +308,40 @@ app.post('/books/:id/toggle-like', async (req, res) => {
     }
 });
 
-
-
-
-app.post('/upload-books', upload.single('bookImages'), async(req, res) => {
-    const {title, author, genre} = req.body;
+app.post('/upload-books', upload.single('bookImages'), async (req, res) => {
+    
+    const { title, author, genre, description } = req.body;
     let publishingYear = parseInt(req.body.publishingYear, 10);
     let availabilityStatus = req.body.availabilityStatus === 'true';
 
-    try{
+    try {
+        // Validate publishingYear
         if (isNaN(publishingYear)) {
             return res.status(400).json({ message: 'Publishing year must be a valid integer.' });
         }
-        const existingBook = await prisma.book.findUnique({
-            where: {title}
-        })
-        if (existingBook){
-            res.status(400).json({message: "Oops! Book has already been added"})
-        }
-        let imageUrl;
-        if (req.file) {
-            imageUrl = req.file.path
-        }
-        else if (!req.file) {
-            imageUrl = await fetchRandomPhoto();
-        }
+
         const newBook = await prisma.book.create({
-            data:{
+            data: {
                 title,
                 author,
-                image: imageUrl,
                 genre,
+                description: description || '', // Provide default empty string
                 publishingYear,
-                availabilityStatus
-            }
-        })
-        res.status(201).json({message: `${newBook.title}, book has been added!`})
-    }
-    catch(error){
-        console.error(error);
-        res.status(500).json({message: "Failed to add this book. Please try again"})
-    }
-})
+                availabilityStatus,
+                image: req.file ? req.file.path : await fetchRandomPhoto()
+            },
+        });
 
-app.get('/get-books', async (req, res) => {
-    const userId = parseInt(req.query.userId, 10); // Get the userId from query parameters
+        res.status(201).json(newBook);
+    } catch (error) {
+        console.error('Error adding book:', error);
+        res.status(500).json({ message: 'Failed to add this book. Please try again' });
+    }
+});
+
+
+app.get('/get-books', authenticateToken, async (req, res) => {
+    const userId = req.userId; // Get the userId from query parameters
 
     try {
         // Retrieve all books with like count
@@ -357,6 +378,30 @@ app.get('/get-books', async (req, res) => {
 });
 
 
+app.put('/books/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    
+    const { title, author, genre, description, publishingYear, availabilityStatus } = req.body;
+
+    try {
+        const updatedBook = await prisma.book.update({
+            where: { id: parseInt(id, 10) },
+            data: {
+                title,
+                author,
+                genre,
+                publishingYear: parseInt(publishingYear, 10),
+                availabilityStatus: Boolean(availabilityStatus),
+                description: description || '',
+            },
+        });
+        res.status(200).json(updatedBook);
+    } catch (error) {
+        console.error('Error updating book:', error);
+        res.status(500).json({ message: 'Failed to update book' });
+    }
+});
 
 
 app.listen(PORT, () => {
