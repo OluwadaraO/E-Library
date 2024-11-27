@@ -1,0 +1,99 @@
+/* General Styles */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 0; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* height: 100vh; */
+}
+
+/* Main Container */
+.login-container {
+    background-color: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    display: flex;
+    max-width: 1000px;
+    width: 90%;
+    height: 550px;
+    overflow: hidden;
+    margin: 30px auto;
+    position: relative; 
+}
+
+/* Left Side (Form) */
+.login-form-container {
+    background-color: #ffffff;
+    padding: 60px 50px;
+    width: 55%;
+    text-align: left;
+}
+
+.login-title {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.login-subtext {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    margin-bottom: 20px;
+}
+
+.link {
+    color: #6a67ce;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    text-align: left;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: border-color 0.3s;
+}
+
+.form-input:focus {
+    border-color: #6a67ce;
+    outline: none;
+}
+
+.login-button {
+    background-color: #6a67ce;
+    color: #fff;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+.login-button:hover {
+    background-color: #5a57b4;
+}
+
+/* Right Side (Gradient Background) */
+.gradient-background {
+    background: linear-gradient(135deg, #6a67ce, #f567b4);
+    flex: 1;
+}

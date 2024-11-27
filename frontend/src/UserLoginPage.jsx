@@ -1,3 +1,4 @@
+import './UserLoginPage.css';
 import { Link } from 'react-router-dom';
 import React, {useState, useEffect} from 'react';
 import { useAuth } from './Authentication';
@@ -39,36 +40,46 @@ function UserLoginPage(){
     };
 
     return(
-        <div>
-            <h1>Welcome Back to E-Library</h1>
-            <p>Not a user? <Link to="/sign-up">Sign Up Today!</Link></p>
-            <p>Admins should log in <Link to="/admin-login"> here</Link></p>
-            {!user ? (
-          <form onSubmit={handleLogin}>
-            <div>
-              <label>Username</label>
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                required
-                placeholder="Enter your username"
-              />
-            </div>
-            <div>
-              <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Enter your password"
-              />
-            </div>
-            <button type="submit">Login</button>
-          </form>
-        ): null}
+      <div className="user-login-container">
+        <div className="user-login-form">
+          <h1 className="login-title">Welcome Back to E-Library</h1>
+          <p className="login-subtext">
+              Not a user? <Link to="/sign-up" className="link">Sign Up Today!</Link>
+          </p>
+          <p className="login-subtext">
+              Admins should log in <Link to="/admin-login" className="link">here</Link>
+          </p>
+          {!user ? (
+              <form onSubmit={handleLogin}>
+                  <div>
+                      <label className="form-label">Username</label>
+                      <input
+                          type="text"
+                          value={userName}
+                          onChange={(e) => setUserName(e.target.value)}
+                          required
+                          className="form-input"
+                          placeholder="Enter your username"
+                      />
+                  </div>
+                  <div>
+                      <label className="form-label">Password</label>
+                      <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="form-input"
+                          placeholder="Enter your password"
+                      />
+                  </div>
+                  <button type="submit" className="login-button">Login</button>
+              </form>
+          ) : null}
         </div>
+        <div className="gradient-background"></div>
+      </div>
+  
     )
 }
 export default UserLoginPage;

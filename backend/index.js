@@ -340,12 +340,26 @@ app.post('/upload-books', upload.single('bookImages'), async (req, res) => {
 });
 
 
+
 app.get('/get-books', authenticateToken, async (req, res) => {
-    const userId = req.userId; // Get the userId from query parameters
+    const { title, genre, author, startYear, endYear  } = req.query; // Extract search parameters
+    const userId = req.userId; // Get the userId from the token
 
     try {
-        // Retrieve all books with like count
+        // Build dynamic filters for search
+        const filters = {
+            AND: [
+                title ? { title: { contains: title, mode: 'insensitive' } } : {},
+                genre ? { genre: { contains: genre, mode: 'insensitive' } } : {},
+                author ? { author: { contains: author, mode: 'insensitive' } } : {},
+                startYear ? { publishingYear: { gte: parseInt(startYear, 10) } } : {},
+                endYear ? { publishingYear: { lte: parseInt(endYear, 10) } } : {},
+            ],
+        };
+
+        // Retrieve books with the applied filters and like counts
         const books = await prisma.book.findMany({
+            where: filters,
             include: {
                 _count: {
                     select: { Like: true }, // Get the total count of likes for each book
@@ -365,17 +379,77 @@ app.get('/get-books', authenticateToken, async (req, res) => {
                 return {
                     ...book,
                     likes: book._count.Like,
-                    liked: !!liked, // `liked` will be true if a like exists, otherwise false
+                    liked: !!liked, // `liked` will be true if the user has liked the book
                 };
             })
         );
 
-        res.json(booksWithLikeStatus);
+        res.status(200).json(booksWithLikeStatus);
     } catch (error) {
         console.error('Error fetching books:', error);
         res.status(500).json({ message: 'Failed to fetch books' });
     }
 });
+
+app.get('/user/:id', authenticateToken, async (req, res) => {
+    try {
+        // Ensure the user is accessing their own profile
+        if (parseInt(req.params.id) !== req.userId) {
+            return res.status(403).json({ message: 'Access forbidden: You can only access your own profile' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: req.userId }, // Use req.userId from the middleware
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' }); // Return an error if the user doesn't exist
+        }
+
+        res.status(200).json(user); // Send the user data as JSON
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ message: 'Failed to fetch user profile' });
+    }
+});
+
+app.post('/books/:id/borrow', authenticateToken, async (req, res) => {
+    const { id } = req.params; // Book ID
+    const userId = req.userId; // Authenticated user's ID
+
+    try {
+        // Check if the book is available
+        const book = await prisma.book.findUnique({
+            where: { id: parseInt(id) },
+        });
+
+        if (!book || !book.availabilityStatus) {
+            return res.status(400).json({ message: 'Book is not available for borrowing' });
+        }
+
+        // Mark the book as unavailable and create a BorrowedBook entry
+        const borrowedBook = await prisma.borrowedBook.create({
+            data: {
+                userId: userId,
+                bookId: parseInt(id),
+                returnDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Due in 30 days
+            },
+        });
+
+        // Update the book's availability status
+        await prisma.book.update({
+            where: { id: parseInt(id) },
+            data: { availabilityStatus: false },
+        });
+
+        res.status(201).json({ message: 'Book borrowed successfully', borrowedBook });
+    } catch (error) {
+        console.error('Error borrowing book:', error); // Log the actual error
+        res.status(500).json({ message: 'Failed to borrow the book' });
+    }
+});
+
+
 
 
 app.put('/books/:id', async (req, res) => {
@@ -400,6 +474,78 @@ app.put('/books/:id', async (req, res) => {
     } catch (error) {
         console.error('Error updating book:', error);
         res.status(500).json({ message: 'Failed to update book' });
+    }
+});
+
+app.get('/user/:id/borrowed-books', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    // Ensure the user can only access their own borrowed books
+    if (parseInt(id) !== req.userId) {
+        return res.status(403).json({ message: "Access forbidden: You can only view your own borrowed books" });
+    }
+
+    try {
+        const borrowedBooks = await prisma.borrowedBook.findMany({
+            where: { userId: parseInt(id) },
+            include: { book: true }, // Include book details
+        });
+
+        if (!borrowedBooks.length) {
+            return res.status(404).json({ message: "No borrowed books found" });
+        }
+
+        res.status(200).json(borrowedBooks);
+    } catch (error) {
+        console.error("Error fetching borrowed books:", error);
+        res.status(500).json({ message: "Failed to fetch borrowed books" });
+    }
+});
+
+app.put('/user/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { firstName, lastName, schoolID, userName } = req.body;
+
+    if (parseInt(id) !== req.userId) {
+        return res.status(403).json({ message: "You can only edit your own profile." });
+    }
+
+    try {
+        const updatedUser = await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: {
+                firstName,
+                lastName,
+                schoolID,
+                userName,
+            },
+        });
+
+        res.status(200).json(updatedUser);
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ message: "Failed to update user information." });
+    }
+});
+
+
+app.get('/user/:id/liked-books', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    if (parseInt(id) !== req.userId) {
+        return res.status(403).json({ message: "You can only view your own liked books." });
+    }
+
+    try {
+        const likedBooks = await prisma.like.findMany({
+            where: { userId: parseInt(id) },
+            include: { book: true }, // Include book details
+        });
+
+        res.status(200).json(likedBooks);
+    } catch (error) {
+        console.error("Error fetching liked books:", error);
+        res.status(500).json({ message: "Failed to fetch liked books." });
     }
 });
 

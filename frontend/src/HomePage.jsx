@@ -11,28 +11,30 @@ function HomePage(){
     const [error, setError] = useState(null)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedBook, setSelectedBook] = useState(null);
-    const {user, isAuthenticated, logout} = useAuth()
-    const navigate = useNavigate()
+    const {user, isAuthenticated, logout} = useAuth();
+    const [searchQuery, setSearchQuery] = useState({ title: '', genre: '', author: '', dateRange: '' });
+    const navigate = useNavigate();
+
+    const fetchBooks = async (queryParams = '') => {
+        try {
+            const response = await fetch(`http://localhost:3000/get-books${queryParams}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+            const data = await response.json();
+            setBooks(data);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching books: ', error);
+            setError(error.message);
+            setLoading(false);
+        }
+    };
     useEffect(() => {
         if (!user || !isAuthenticated) {
             navigate('/'); // Redirect to /home if the user is authenticated
             return;
-        }
-        const fetchBooks = async() => {
-            try{
-                const response = await fetch(`http://localhost:3000/get-books`, {
-                    method: 'GET',
-                    headers:  { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                })
-                const data = await response.json();
-                setBooks(data);
-                setLoading(false)
-            }catch(error){
-                console.error('Error fetching books: ', error)
-                setError(error.message);
-                setLoading(false)
-            }
         }
         fetchBooks();
     }, [user, navigate, isAuthenticated])
@@ -91,12 +93,131 @@ function HomePage(){
         }
     };
 
+    const handleProfileClick = () => {
+        navigate(`/user/${user.id}`); // Navigate to the user's profile page
+    };
+
+    const handleSearchChange = (e) => {
+        setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });
+    };
+
+    const handleSearch = () => {
+        let { dateRange, ...otherQueries } = searchQuery;
+
+        // Map the date range to startYear and endYear
+        let startYear, endYear;
+        if (dateRange === '<1800') {
+            endYear = 1799;
+        } else if (dateRange === '1801-1900') {
+            startYear = 1801;
+            endYear = 1900;
+        } else if (dateRange === '1901-2000') {
+            startYear = 1901;
+            endYear = 2000;
+        } else if (dateRange === '2001-2020') {
+            startYear = 2001;
+            endYear = 2020;
+        } else if (dateRange === '2020+') {
+            startYear = 2021;
+        }
+
+        // Build query string from other fields and date range
+        const queryParams = Object.entries(otherQueries)
+            .filter(([key, value]) => value.trim()) // Include only non-empty fields
+            .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+            .join('&');
+
+        // Add startYear and endYear to the query
+        const dateParams = [
+            startYear ? `startYear=${startYear}` : null,
+            endYear ? `endYear=${endYear}` : null,
+        ]
+            .filter(Boolean)
+            .join('&');
+
+        // Combine both query strings
+        const fullQuery = [queryParams, dateParams].filter(Boolean).join('&');
+
+        fetchBooks(fullQuery ? `?${fullQuery}` : '');
+    };
+
+    const handleBorrowBook = async (bookId) => {
+        try {
+            const response = await fetch(`http://localhost:3000/books/${bookId}/borrow`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include", // Include cookies for authentication
+            });
+    
+            if (!response.ok) {
+                throw new Error("Failed to borrow book");
+            }
+    
+            const data = await response.json();
+            alert(data.message); // Notify the user of success
+    
+            // Refresh books to update availability status
+            fetchBooks();
+        } catch (error) {
+            console.error("Error borrowing book:", error);
+        }
+    };
+
 
 return(
     <div>
-         <h1>{user && isAuthenticated? `Welcome back, ${user.firstName}` : 'Loading...'} </h1>
+        <div className="header">
+            <h1>
+                {user && isAuthenticated ? `Welcome back, ${user.firstName}` : 'Loading...'}
+            </h1>
+            <div className="header-right">
+                <button className="logout-button" onClick={handleLogout}>
+                    Log out
+                </button>
+                <div className="profile-icon" onClick={handleProfileClick}>
+                    {user?.firstName?.charAt(0).toUpperCase()}
+                </div>
+            </div>
+        </div>
+
          <button onClick={handleLogout}>Log out</button>
          <h1>Books Available</h1>
+         <div className="search-bar">
+            <input
+                type="text"
+                name="title"
+                placeholder="Search by Title"
+                value={searchQuery.title}
+                onChange={handleSearchChange}
+            />
+            <input
+                type="text"
+                name="genre"
+                placeholder="Search by Genre"
+                value={searchQuery.genre}
+                onChange={handleSearchChange}
+            />
+            <input
+                type="text"
+                name="author"
+                placeholder="Search by Author"
+                value={searchQuery.author}
+                onChange={handleSearchChange}
+            />
+            <select
+                    name="dateRange"
+                    value={searchQuery.dateRange}
+                    onChange={handleSearchChange}
+            >
+                    <option value="">Select Date Range</option>
+                    <option value="<1800">Before 1800</option>
+                    <option value="1801-1900">1801 - 1900</option>
+                    <option value="1901-2000">1901 - 2000</option>
+                    <option value="2001-2020">2001 - 2020</option>
+                    <option value="2020+">After 2020</option>
+            </select>
+            <button onClick={handleSearch}>Search</button>
+         </div>
          <div className="book-list">
             {books.map(book => (
                 <div className="book-item" key={book.id}>
@@ -115,6 +236,10 @@ return(
                             fontSize: '24px',
                         }}
                         />
+                    <p>Status: {book.availabilityStatus ? "Available" : "Not Available"}</p>
+                    {book.availabilityStatus && (
+                        <button onClick={() => handleBorrowBook(book.id)}>Borrow</button>
+                    )}
                     <button onClick={() => openModal(book)}>View Details</button>
                 </div>
             ))}
