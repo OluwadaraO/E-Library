@@ -6,6 +6,7 @@ import AdminSignUpPage from './AdminSignUpPage';
 import { AuthenticationProvider } from "./Authentication";
 import HomePage from './HomePage';
 import AdminHomePage from './AdminHomePage';
+import UserProfilePage from './UserProfilePage';
 function App(){
   return(
     <AuthenticationProvider>
@@ -17,6 +18,7 @@ function App(){
           <Route path='/admin-sign-up' element={<AdminSignUpPage/>}/>
           <Route path='/home' element={<HomePage/>}/>
           <Route path='/admin-home' element={<AdminHomePage/>}/>
+          <Route path='/user/:id' element={<UserProfilePage/>}/>
         </Routes>
       </Router>
     </AuthenticationProvider>

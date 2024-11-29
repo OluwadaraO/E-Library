@@ -20,6 +20,7 @@ model User{
   schoolID Int
   userName String @unique
   password String
+  BorrowedBook BorrowedBook[]
 }
 
 model Admin{
@@ -42,6 +43,7 @@ model Book {
   createdAt DateTime @default(now())
   likes Int      @default(0) // Add likes with a default value
   Like             Like[]
+  BorrowedBook     BorrowedBook[]
 }
 
 model Like {
@@ -51,4 +53,16 @@ model Like {
   book    Book   @relation(fields: [bookId], references: [id])
 
   @@unique([userId, bookId]) // Ensure each user can like each book only once
+}
+
+model BorrowedBook {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  bookId       Int
+  borrowDate   DateTime @default(now())
+  returnDueDate DateTime
+  user         User     @relation(fields: [userId], references: [id])
+  book         Book     @relation(fields: [bookId], references: [id])
+
+  @@unique([userId, bookId]) // Ensure a user cannot borrow the same book multiple times
 }
