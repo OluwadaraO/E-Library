@@ -21,7 +21,6 @@ function AdminHomePage(){
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
     const openModal = (book = null) => {
-        console.log('Opening modal with book:', book); // Debug log
         if (book) {
             // Editing existing book
             setIsEditing(true);
@@ -35,10 +34,8 @@ function AdminHomePage(){
                 image: null,
                 description: book.description || '',
             });
-            console.log("does it get here?")
         } else {
             // Adding new book
-            console.log('Opening modal for new book');
             setIsEditing(false);
             setSelectedBookId(null);
             setBookDetails({
@@ -60,12 +57,6 @@ function AdminHomePage(){
         setSuccessMessage(null)
         setSelectedBookId(null)
     }
-
-    // const handleInputChange = (e) => {
-    //     const { name, value } = e.target;
-    //     setBookDetails({ ...bookDetails, [name]: value });
-    //     console.log(`Updated ${name}:`, value); // Log each update to check
-    // };
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         // Special handling for availabilityStatus
@@ -73,7 +64,6 @@ function AdminHomePage(){
             ? value === 'true'  // Convert to boolean
             : value;
         setBookDetails(prev => ({ ...prev, [name]: processedValue }));
-        console.log(`Updated ${name}:`, processedValue); // Debug log
     };
     const handleFileChange = (e) => {
         setBookDetails({...bookDetails, image: e.target.files[0]});
@@ -132,15 +122,23 @@ function AdminHomePage(){
             }
     
             // Update the books list accordingly
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to save book');
+            }
+            
+            // Update the books list
             if (isEditing) {
-                setBooks(prevBooks => 
-                    prevBooks.map(book => book.id === selectedBookId ? data : book)
+                // For editing, replace the updated book in the list
+                setBooks(prevBooks =>
+                    prevBooks.map(book => (book.id === selectedBookId ? data : book))
                 );
                 setSuccessMessage('Book updated successfully!');
             } else {
-                setBooks(prevBooks => [...prevBooks, data]);
+                // For adding, append the new book to the list
+                setBooks(prevBooks => [...prevBooks, data.newBook]); // Use data.newBook
                 setSuccessMessage('Book added successfully!');
             }
+            
     
             closeModal();
         } catch (error) {

@@ -7,6 +7,7 @@ import { AuthenticationProvider } from "./Authentication";
 import HomePage from './HomePage';
 import AdminHomePage from './AdminHomePage';
 import UserProfilePage from './UserProfilePage';
+import UserNotificationPage from './UserNotificationPage';
 function App(){
   return(
     <AuthenticationProvider>
@@ -19,6 +20,7 @@ function App(){
           <Route path='/home' element={<HomePage/>}/>
           <Route path='/admin-home' element={<AdminHomePage/>}/>
           <Route path='/user/:id' element={<UserProfilePage/>}/>
+          <Route path='/user-notifications' element={<UserNotificationPage/>}/>
         </Routes>
       </Router>
     </AuthenticationProvider>

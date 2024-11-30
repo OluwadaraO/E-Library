@@ -70,7 +70,11 @@ function UserProfilePage() {
                 }
 
                 const data = await response.json();
-                setBorrowedBooks(data);
+                if (data.length === 0) {
+                    setBorrowedBooks([]); // No borrowed books
+                } else {
+                    setBorrowedBooks(data); // Set borrowed books
+                }
             } catch (error) {
                 setError(error.message);
             }
@@ -212,14 +216,16 @@ function UserProfilePage() {
                 </section>
                 <section className="borrowed-books">
                     <h2>Borrowed Books</h2>
-                    {borrowedBooks.length ? (
-                        borrowedBooks.map((borrowed) => (
-                            <p key={borrowed.book.id}>
-                                {borrowed.book.title} by {borrowed.book.author} - Due in {Math.ceil((new Date(borrowed.returnDueDate) - new Date()) / (1000 * 60 * 60 * 24))} days
-                            </p>
-                        ))
+                    {borrowedBooks.length > 0 ? (
+                        <ul>
+                            {borrowedBooks.map((book) => (
+                                <li key={book.book.id}>
+                                    {book.book.title} by {book.book.author} - Due in {book.daysLeft} days
+                                </li>
+                            ))}
+                        </ul>
                     ) : (
-                        <p>No borrowed books.</p>
+                        <p>You have no borrowed books.</p> // Friendly message when no books are borrowed
                     )}
                 </section>
             </main>

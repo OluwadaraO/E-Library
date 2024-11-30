@@ -1,6 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const http = require('http');
+const { Server } = require('socket.io');
+const server = http.createServer(app);
 
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
@@ -8,6 +11,7 @@ const jwt = require('jsonwebtoken');
 
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const cron = require('node-cron');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
@@ -16,6 +20,21 @@ const cloudinaryAPIKey = process.env.CLOUDINARY_API_KEY;
 const cloudinaryKey = process.env.CLOUDINARY_KEY;
 
 const nodeEnv = process.env.NODE_ENV;
+
+const io = new Server(server, {
+    cors: {
+        origin: ["http://localhost:5173", "http://localhost:3000"], // Allow frontend origin
+        methods: ["GET", "POST"],
+        credentials: true,
+
+    },
+});
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
 
 const multer = require('multer');
 const PORT = process.env.PORT;
@@ -34,6 +53,15 @@ cloudinary.config({
     api_secret: cloudinaryKey,
 });
 
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params:{
@@ -46,7 +74,36 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(cookieParser());  
 app.use(cors({origin: `${frontendAddress}`,
-              credentials: true }));
+            credentials: true }));
+
+const deleteOldNotifications = async () => {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        // Delete notifications older than 7 days
+        const deleted = await prisma.notification.deleteMany({
+            where: {
+                createdAt: { lt: sevenDaysAgo },
+            },
+        });
+
+        console.log(
+            `Old notifications cleanup ran at ${new Date().toISOString()} - Deleted ${deleted.count} notifications`
+        );
+    } catch (error) {
+        console.error('Error deleting old notifications:', error);
+    }
+};
+
+// Schedule the task to run every day at midnight
+cron.schedule('0 0 * * *', () => {
+    console.log('Starting daily notification cleanup task...');
+    deleteOldNotifications();
+});
+
+// Run this function every 24 hours
+setInterval(deleteOldNotifications, 24 * 60 * 60 * 1000);
 
 app.post('/sign-up', async(req, res) => {
     const {firstName, lastName, schoolID, userName, password} = req.body;
@@ -244,6 +301,11 @@ app.post('/books/:id/toggle-like', authenticateToken, async (req, res) => {
     const userId = req.userId; // Ensure userId is an integer
 
     try {
+        const book = await prisma.book.findUnique({ where: { id: parseInt(id, 10) } });
+
+        if (!book) {
+            return res.status(404).json({ message: 'Book not found' });
+        }
         // Check if the user has already liked this book
         const existingLike = await prisma.like.findUnique({
             where: {
@@ -299,7 +361,15 @@ app.post('/books/:id/toggle-like', authenticateToken, async (req, res) => {
                     },
                 },
             });
-        }
+
+            await prisma.notification.create({
+                data: {
+                    userId: userId,
+                    message: `You added the book "${book.title}" to your liked books!`,
+                    type: 'liked',
+                },
+            });
+    }
 
         res.status(200).json({ likes: updatedBook.likes, liked: !existingLike });
     } catch (error) {
@@ -332,7 +402,27 @@ app.post('/upload-books', upload.single('bookImages'), async (req, res) => {
             },
         });
 
-        res.status(201).json(newBook);
+        const notification = {
+            id: newBook.id,
+            message: `A new book "${newBook.title}" has been added to the library!`,
+            type: 'new-book',
+            read: false,
+        }
+
+        await prisma.notification.create({
+            data: {
+                message: notification.message,
+                type: notification.type,
+                userId: null,
+                read: false,
+            },
+        });
+
+        io.emit('newBook', notification)
+
+        console.log('Notification emitted:', newBook.title);
+
+        res.status(201).json({newBook});
     } catch (error) {
         console.error('Error adding book:', error);
         res.status(500).json({ message: 'Failed to add this book. Please try again' });
@@ -442,6 +532,14 @@ app.post('/books/:id/borrow', authenticateToken, async (req, res) => {
             data: { availabilityStatus: false },
         });
 
+        await prisma.notification.create({
+            data: {
+                userId,
+                message: `You borrowed "${book.title}". Return it in 30 days.`,
+                type: 'borrowed',
+            },
+        });
+
         res.status(201).json({ message: 'Book borrowed successfully', borrowedBook });
     } catch (error) {
         console.error('Error borrowing book:', error); // Log the actual error
@@ -487,20 +585,33 @@ app.get('/user/:id/borrowed-books', authenticateToken, async (req, res) => {
 
     try {
         const borrowedBooks = await prisma.borrowedBook.findMany({
-            where: { userId: parseInt(id) },
+            where: { userId: parseInt(id, 10) },
             include: { book: true }, // Include book details
         });
 
         if (!borrowedBooks.length) {
-            return res.status(404).json({ message: "No borrowed books found" });
+            return res.status(200).json([]); // Return an empty array
         }
 
-        res.status(200).json(borrowedBooks);
+        // Calculate daysLeft for each borrowed book
+        const booksWithDaysLeft = borrowedBooks.map((borrowedBook) => {
+            const daysLeft = Math.max(
+                Math.ceil((new Date(borrowedBook.returnDueDate) - new Date()) / (1000 * 60 * 60 * 24)),
+                0
+            );
+            return {
+                ...borrowedBook,
+                daysLeft,
+            };
+        });
+
+        res.status(200).json(booksWithDaysLeft);
     } catch (error) {
         console.error("Error fetching borrowed books:", error);
         res.status(500).json({ message: "Failed to fetch borrowed books" });
     }
 });
+
 
 app.put('/user/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
@@ -550,6 +661,166 @@ app.get('/user/:id/liked-books', authenticateToken, async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.get('/user/:id/notifications', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    // Validate that the user is only fetching their own notifications
+    if (parseInt(id, 10) !== req.userId) {
+        return res.status(403).json({ message: "Access forbidden: You can only view your own notifications." });
+    }
+
+    try {
+        // Fetch user-specific notifications and global notifications
+        const userNotifications = await prisma.notification.findMany({
+            where: {
+                userId: parseInt(id, 10),
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const globalNotifications = await prisma.notification.findMany({
+            where: { userId: null },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // Combine both notifications
+        const notifications = [
+            ...userNotifications,
+            ...globalNotifications,
+        ];
+
+        notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.status(200).json(notifications);
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        res.status(500).json({ message: 'Failed to fetch notifications.' });
+    }
 });
+
+
+
+app.patch('/notifications/:id/toggle-read', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const notification = await prisma.notification.findUnique({ where: { id: parseInt(id, 10) } });
+
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
+        // Skip userId check for global notifications
+        if (notification.userId !== null && notification.userId !== req.userId) {
+            return res.status(403).json({ message: "You don't have access to this notification" });
+        }
+
+        // Handle global notifications
+        if (notification.userId === null) {
+            // Check if GlobalNotificationRead entry exists
+            const globalNotificationRead = await prisma.globalNotificationRead.findUnique({
+                where: {
+                    userId_notificationId: {
+                        userId: req.userId,
+                        notificationId: notification.id,
+                    },
+                },
+            });
+
+            if (globalNotificationRead) {
+                // Toggle the read status for the global notification
+                const updatedGlobalNotificationRead = await prisma.globalNotificationRead.update({
+                    where: {
+                        id: globalNotificationRead.id,
+                    },
+                    data: {
+                        read: !globalNotificationRead.read,
+                    },
+                });
+
+                return res.status(200).json(updatedGlobalNotificationRead);
+            } else {
+                // If entry doesn't exist, create one and mark it as read
+                const newGlobalNotificationRead = await prisma.globalNotificationRead.create({
+                    data: {
+                        userId: req.userId,
+                        notificationId: notification.id,
+                        read: true,
+                    },
+                });
+
+                return res.status(200).json(newGlobalNotificationRead);
+            }
+        }
+
+        // Handle user-specific notifications
+        const updatedNotification = await prisma.notification.update({
+            where: { id: parseInt(id, 10) },
+            data: { read: !notification.read },
+        });
+
+        res.status(200).json(updatedNotification);
+    } catch (error) {
+        console.error('Error toggling read status:', error);
+        res.status(500).json({ message: 'Failed to update notification' });
+    }
+});
+
+
+app.delete('/notifications/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const notification = await prisma.notification.findUnique({ where: { id: parseInt(id, 10) } });
+
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
+        // Check if it's a global notification
+        if (notification.userId === null) {
+            // Mark the global notification as deleted for the user
+            const globalNotificationRead = await prisma.globalNotificationRead.findUnique({
+                where: {
+                    userId_notificationId: {
+                        userId: req.userId,
+                        notificationId: notification.id,
+                    },
+                },
+            });
+
+            if (!globalNotificationRead) {
+                return res.status(404).json({ message: 'Global notification read status not found' });
+            }
+
+            // Soft delete the notification for the user
+            await prisma.globalNotificationRead.update({
+                where: { id: globalNotificationRead.id },
+                data: { deleted: true },
+            });
+
+            return res.status(200).json({ message: 'Global notification marked as deleted for the user' });
+        }
+
+        // Handle user-specific notifications
+        if (notification.userId !== req.userId) {
+            return res.status(403).json({ message: "You don't have access to this notification" });
+        }
+
+        // Delete the user-specific notification
+        await prisma.notification.delete({ where: { id: parseInt(id, 10) } });
+
+        res.status(200).json({ message: 'Notification deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting notification:', error);
+        res.status(500).json({ message: 'Failed to delete notification' });
+    }
+});
+
+
+server.listen(3000, () => {
+    console.log(`Server running on http://localhost:3000`);
+});
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
