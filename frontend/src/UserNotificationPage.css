@@ -1,0 +1,46 @@
+.notification-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+    text-decoration: none;
+    color: #333; /* Default color */
+    transition: color 0.3s ease, text-decoration 0.3s ease;
+}
+
+.notification-item:hover {
+    background-color: #f9f9f9;
+    color: #007bff; /* Hover color (blue) */
+    text-decoration: underline; 
+}
+
+.notification-item p {
+    margin: 0;
+}
+
+.notification-item button {
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.notification-item button:hover {
+    background-color: darkred;
+}
+
+
+.notification-item.read {
+    color: #6c757d; /* Gray for read notifications */
+    text-decoration: line-through;
+}
+
+.notification-item.unread {
+    color: #007bff; /* Blue for unread notifications */
+    font-weight: bold; /* Optional: Make unread notifications bold */
+}
+

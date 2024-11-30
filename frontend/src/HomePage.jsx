@@ -171,6 +171,9 @@ return(
                 {user && isAuthenticated ? `Welcome back, ${user.firstName}` : 'Loading...'}
             </h1>
             <div className="header-right">
+                <button onClick={() => navigate('/user-notifications')} className="notification-bell">
+                    🔔 Notifications
+                </button>
                 <button className="logout-button" onClick={handleLogout}>
                     Log out
                 </button>
@@ -179,8 +182,6 @@ return(
                 </div>
             </div>
         </div>
-
-         <button onClick={handleLogout}>Log out</button>
          <h1>Books Available</h1>
          <div className="search-bar">
             <input

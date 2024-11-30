@@ -21,6 +21,7 @@ model User{
   userName String @unique
   password String
   BorrowedBook BorrowedBook[]
+  notifications Notification[]
 }
 
 model Admin{
@@ -65,4 +66,27 @@ model BorrowedBook {
   book         Book     @relation(fields: [bookId], references: [id])
 
   @@unique([userId, bookId]) // Ensure a user cannot borrow the same book multiple times
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     // Null for global notifications
+  user        User?    @relation(fields: [userId], references: [id])
+  message     String
+  type        String   // e.g., "liked", "borrowed", "new-book"
+  createdAt   DateTime @default(now())
+  read        Boolean  @default(false) // To track whether the notification has been read
+  globalReads GlobalNotificationRead[] 
+}
+
+model GlobalNotificationRead {
+  id                Int          @id @default(autoincrement())
+  userId            Int          // User who read the notification
+  notificationId    Int          // Global notification ID
+  notification      Notification @relation(fields: [notificationId], references: [id])
+  read              Boolean      @default(false) // Read status
+  deleted           Boolean      @default(false) // Track if the user has deleted the notification
+  createdAt         DateTime     @default(now())
+
+  @@unique([userId, notificationId]) // Ensure a user can only have one record per notification
 }
