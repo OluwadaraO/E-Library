@@ -30,6 +30,8 @@ model Admin{
   lastName String
   userName String @unique
   password String
+  notifications Notification[]
+  adminNotifications AdminNotification[]
 }
 
 model Book {
@@ -72,12 +74,25 @@ model Notification {
   id          Int      @id @default(autoincrement())
   userId      Int?     // Null for global notifications
   user        User?    @relation(fields: [userId], references: [id])
+  adminId     Int?     
+  admin       Admin?   @relation(fields: [adminId], references: [id])
   message     String
   type        String   // e.g., "liked", "borrowed", "new-book"
   createdAt   DateTime @default(now())
   read        Boolean  @default(false) // To track whether the notification has been read
   globalReads GlobalNotificationRead[] 
 }
+
+model AdminNotification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  type      String
+  adminId   Int? 
+  admin     Admin?   @relation(fields: [adminId], references: [id])
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+}
+
 
 model GlobalNotificationRead {
   id                Int          @id @default(autoincrement())

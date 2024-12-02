@@ -1,0 +1,106 @@
+/* UserSignUpPage.css */
+.user-signup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #f4f4f4;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  
+  .user-signup-title {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 2.5rem;
+    text-align: center;
+  }
+  
+  .user-signup-subtext {
+    color: #7f8c8d;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  .user-signup-link {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s ease;
+  }
+  
+  .user-signup-link:hover {
+    color: #2980b9;
+  }
+  
+  .user-signup-form {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  .user-signup-instruction {
+    text-align: center;
+    color: #34495e;
+    margin-bottom: 30px;
+    font-size: 1.2rem;
+  }
+  
+  .user-signup-fields {
+    display: grid;
+    gap: 20px;
+  }
+  
+  .user-signup-label {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .user-signup-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+  }
+  
+  .user-signup-input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+  }
+  
+  .user-signup-button {
+    width: 100%;
+    padding: 15px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 20px;
+  }
+  
+  .user-signup-button:hover {
+    background-color: #2980b9;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 600px) {
+    .user-signup-form {
+      padding: 20px;
+      width: 90%;
+    }
+  
+    .user-signup-title {
+      font-size: 2rem;
+    }
+  }

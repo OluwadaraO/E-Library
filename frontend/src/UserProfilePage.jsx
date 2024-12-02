@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "./Authentication";
 import { useNavigate, useParams } from "react-router-dom";
 import './UserProfilePage.css'
+// import io from "socket.io-client";
 
 function UserProfilePage() {
     const { id } = useParams(); // Get the user ID from the URL
@@ -80,10 +81,24 @@ function UserProfilePage() {
             }
         };
 
+        
         fetchUserProfile();
         fetchBorrowedBooks();
         fetchLikedBooks();
         setLoading(false);
+
+        // const socket = io("http://localhost:3000"); // Connect to the WebSocket server
+
+        // // Listen for return notifications
+        // socket.on("bookReturned", (notification) => {
+        //     console.log("Book returned notification:", notification);
+        //     alert(notification.message); // Show real-time notification
+        // });
+
+        // return () => {
+        //     socket.disconnect(); // Cleanup when the component unmounts
+        // };
+
     }, [isAuthenticated, navigate, user]);
     
     if (loading) return <p>Loading profile...</p>;
@@ -118,6 +133,30 @@ function UserProfilePage() {
     const handleBackToHome = () => {
         navigate('/home'); // Navigate back to the home page
     }
+
+    const handleReturnBook = async (bookId) => {
+        try {
+            const response = await fetch(`http://localhost:3000/books/${bookId}/return`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Include cookies for authentication
+            });
+    
+            if (!response.ok) {
+                throw new Error('Failed to return the book');
+            }
+    
+            // Update the borrowedBooks state
+            setBorrowedBooks((prevBooks) =>
+                prevBooks.filter((book) => book.book.id !== bookId)
+            );
+
+        } catch (error) {
+            console.error('Error returning book:', error);
+        }
+    };
+    
+    
 
     return (
         <div className="profile-container">
@@ -221,7 +260,12 @@ function UserProfilePage() {
                             {borrowedBooks.map((book) => (
                                 <li key={book.book.id}>
                                     {book.book.title} by {book.book.author} - Due in {book.daysLeft} days
+                                    <button
+                                        onClick={() => handleReturnBook(book.book.id)}
+                                        className="return-button"
+                                    >Return</button>
                                 </li>
+                                
                             ))}
                         </ul>
                     ) : (

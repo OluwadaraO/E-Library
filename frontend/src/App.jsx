@@ -8,6 +8,8 @@ import HomePage from './HomePage';
 import AdminHomePage from './AdminHomePage';
 import UserProfilePage from './UserProfilePage';
 import UserNotificationPage from './UserNotificationPage';
+import AdminProfilePage from './AdminProfilePage';
+import AdminNotificationPage from './AdminNotificationPage';
 function App(){
   return(
     <AuthenticationProvider>
@@ -21,6 +23,8 @@ function App(){
           <Route path='/admin-home' element={<AdminHomePage/>}/>
           <Route path='/user/:id' element={<UserProfilePage/>}/>
           <Route path='/user-notifications' element={<UserNotificationPage/>}/>
+          <Route path="/admin/profile" element={<AdminProfilePage />} />
+          <Route path="/admin/notification" element={<AdminNotificationPage />} />
         </Routes>
       </Router>
     </AuthenticationProvider>

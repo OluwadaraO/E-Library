@@ -1,0 +1,13 @@
+.notification-item {
+    cursor: pointer;
+}
+
+.notification-item.read {
+    color: gray;
+    text-decoration: line-through;
+}
+
+.notification-item.unread {
+    font-weight: bold;
+    color: black;
+}

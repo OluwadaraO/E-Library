@@ -418,6 +418,17 @@ app.post('/upload-books', upload.single('bookImages'), async (req, res) => {
             },
         });
 
+        const admin_notification = await prisma.adminNotification.create({
+            data: {
+                message: `A new book "${newBook.title}" has been added to the library.`,
+                type: 'book-add',
+                adminId: null,
+            },
+        });
+
+        // Emit WebSocket notification to connected admins
+        io.emit('adminNotification', admin_notification);
+
         io.emit('newBook', notification)
 
         console.log('Notification emitted:', newBook.title);
@@ -526,6 +537,10 @@ app.post('/books/:id/borrow', authenticateToken, async (req, res) => {
             },
         });
 
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
         // Update the book's availability status
         await prisma.book.update({
             where: { id: parseInt(id) },
@@ -539,6 +554,17 @@ app.post('/books/:id/borrow', authenticateToken, async (req, res) => {
                 type: 'borrowed',
             },
         });
+
+        const notification = await prisma.adminNotification.create({
+            data: {
+                message: `${user.firstName} borrowed the book "${book.title}".`,
+                type: 'book-borrow',
+                adminId: null,
+            },
+        });
+
+        // Emit WebSocket notification to connected admins
+        io.emit('adminNotification', notification);
 
         res.status(201).json({ message: 'Book borrowed successfully', borrowedBook });
     } catch (error) {
@@ -568,6 +594,17 @@ app.put('/books/:id', async (req, res) => {
                 description: description || '',
             },
         });
+
+        const notification = await prisma.adminNotification.create({
+            data: {
+                message: `The book "${updatedBook.title}" has been updated.`,
+                type: 'book-update',
+                adminId: null,
+            },
+        });
+
+        // Emit WebSocket notification to connected admins
+        io.emit('adminNotification', notification);
         res.status(200).json(updatedBook);
     } catch (error) {
         console.error('Error updating book:', error);
@@ -659,6 +696,31 @@ app.get('/user/:id/liked-books', authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch liked books." });
     }
 });
+
+app.get('/admin/notifications', authenticateToken, async (req, res) => {
+    const adminId = req.userId; // Authenticated admin's ID
+
+    try {
+        // Fetch admin-specific and global notifications
+        const adminNotifications = await prisma.adminNotification.findMany({
+            where: {
+                OR: [
+                    { adminId: adminId }, // Specific to the authenticated admin
+                    { adminId: null },    // Global notifications
+                ],
+            },
+            orderBy: { createdAt: 'desc' }, // Sort by newest first
+        });
+
+        res.status(200).json(adminNotifications);
+    } catch (error) {
+        console.error('Error fetching admin notifications:', error);
+        res.status(500).json({ message: 'Failed to fetch admin notifications' });
+    }
+});
+
+
+
 
 
 app.get('/user/:id/notifications', authenticateToken, async (req, res) => {
@@ -817,6 +879,151 @@ app.delete('/notifications/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Fetch admin profile
+app.get('/admin/profile', authenticateToken, async (req, res) => {
+    try {
+        const admin = await prisma.admin.findUnique({
+            where: { id: req.userId }, // Use the authenticated admin's ID
+        });
+
+        if (!admin) {
+            return res.status(404).json({ message: 'Admin not found' });
+        }
+
+        res.status(200).json(admin); // Return the admin's data
+    } catch (error) {
+        console.error('Error fetching admin profile:', error);
+        res.status(500).json({ message: 'Failed to fetch admin profile' });
+    }
+});
+
+// Update admin profile
+app.put('/admin/profile', authenticateToken, async (req, res) => {
+    const { firstName, lastName, userName } = req.body;
+
+    try {
+        const updatedAdmin = await prisma.admin.update({
+            where: { id: req.userId }, // Use the authenticated admin's ID
+            data: {
+                firstName,
+                lastName,
+                userName,
+            },
+        });
+
+        res.status(200).json(updatedAdmin); // Return the updated admin data
+    } catch (error) {
+        console.error('Error updating admin profile:', error);
+        res.status(500).json({ message: 'Failed to update admin profile' });
+    }
+});
+
+app.post('/books/:id/return', authenticateToken, async (req, res) => {
+    const { id } = req.params; // Book ID
+    const userId = req.userId; // Authenticated user's ID
+
+    try {
+        // Find the borrowed book record
+        const borrowedBook = await prisma.borrowedBook.findFirst({
+            where: {
+                bookId: parseInt(id),
+                userId: userId,
+            },
+            include: {
+                book: true, // Include book details in the result
+            },
+        });
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!borrowedBook) {
+            return res.status(404).json({ message: 'Borrowed book record not found' });
+        }
+
+        // Update the book to make it available again
+        await prisma.book.update({
+            where: { id: parseInt(id) },
+            data: { availabilityStatus: true },
+        });
+
+        // Delete the borrowed book record
+        await prisma.borrowedBook.delete({
+            where: { id: borrowedBook.id },
+        });
+
+        // Create a notification for the user
+        await prisma.notification.create({
+            data: {
+                message: `You have successfully returned the book "${borrowedBook.book.title}".`,
+                type: 'return',
+                userId: userId, // Associate the notification with the user
+            },
+        });
+
+        const notification = await prisma.adminNotification.create({
+            data: {
+                message: `${user.firstName} returned the book "${borrowedBook.book.title}".`,
+                type: 'book-return',
+                adminId: null,
+            },
+        });
+
+        // Emit WebSocket notification to connected admins
+        io.emit('adminNotification', notification);
+
+        res.status(200).json({ message: 'Book returned successfully' });
+    } catch (error) {
+        console.error('Error returning book:', error);
+        res.status(500).json({ message: 'Failed to return the book' });
+    }
+});
+
+
+app.patch('/admin/notifications/:id/toggle-read', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const notification = await prisma.adminNotification.findUnique({ where: { id: parseInt(id, 10) } });
+
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
+        const updatedNotification = await prisma.adminNotification.update({
+            where: { id: parseInt(id, 10) },
+            data: { read: !notification.read },
+        });
+
+        res.status(200).json(updatedNotification);
+    } catch (error) {
+        console.error('Error toggling read status:', error);
+        res.status(500).json({ message: 'Failed to update notification' });
+    }
+});
+
+
+app.delete('/admin/notifications/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const notification = await prisma.adminNotification.findUnique({ where: { id: parseInt(id, 10) } });
+
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
+        await prisma.adminNotification.delete({
+            where: { id: parseInt(id, 10) },
+        });
+
+        res.status(200).json({ message: 'Notification deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting notification:', error);
+        res.status(500).json({ message: 'Failed to delete notification' });
+    }
+});
 
 server.listen(3000, () => {
     console.log(`Server running on http://localhost:3000`);
