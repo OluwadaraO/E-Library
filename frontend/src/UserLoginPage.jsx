@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import React, {useState, useEffect} from 'react';
 import { useAuth } from './Authentication';
 import { useNavigate } from 'react-router-dom';
+import './UserLoginPage.css'
 function UserLoginPage(){
     const navigate = useNavigate();
     const { login, user, logout } = useAuth();  // Access the login function and user data from the context

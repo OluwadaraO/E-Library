@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import { Link } from "react-router-dom";
 import { useAuth } from './Authentication';
 import { useNavigate } from "react-router-dom";
+import './UserSignUpPage.css'
 function UserSignUpPage(){
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
@@ -29,44 +30,49 @@ function UserSignUpPage(){
     }
   }
     return(
-        <div>
-          <h1>Hello! Welcome to E-Library</h1>
-          <p>Already a user? <Link to="/">Sign in instead!</Link></p>
-          <form onSubmit={handleUserSignUp}>
-            <p>Please create an account</p>
-            <div>
-            <label>Student First Name: </label>
+        <div className="user-signup-container">
+          <h1 className="user-signup-title">Hello! Welcome to E-Library</h1>
+          <p className="user-signup-subtext">Already a user? <Link to="/"  className="user-signup-link">Sign in instead!</Link></p>
+          <form onSubmit={handleUserSignUp} className="user-signup-form">
+            <p className="user-signup-instruction">Please create an account</p>
+            <div className="user-signup-fields">
+            <label className="user-signup-label">Student First Name: </label>
             <input 
               type="text" 
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              required/>
-            <label>Student Last Name: </label>
+              required
+              className="user-signup-input"/>
+            <label className="user-signup-label">Student Last Name: </label>
             <input 
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              required/>
-            <label>Student ID(put the numbers only no zeroes): </label>
+              required
+              className="user-signup-input"/>
+            <label className="user-signup-label">Student ID(put the numbers only no zeroes): </label>
             <input 
               type="number"
               value={schoolID}
               onChange={(e) => setschoolID(e.target.value)}
-              required/>
-            <label>Username: </label>
+              required
+              className="user-signup-input"/>
+            <label className="user-signup-label">Username: </label>
             <input 
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
-              required/>
-            <label>Password: </label>
+              required
+              className="user-signup-input"/>
+            <label className="user-signup-label">Password: </label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required/>
+              required
+              className="user-signup-input"/>
             </div>
-            <button type='submit'>Sign Up</button>
+            <button type='submit' className="user-signup-button">Sign Up</button>
           </form>
         </div>
       )

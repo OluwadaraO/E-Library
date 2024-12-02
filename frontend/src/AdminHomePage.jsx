@@ -158,6 +158,9 @@ function AdminHomePage(){
         }
     }
 
+
+
+
     useEffect(() => {
         if (!isAuthenticated){
             navigate('/admin-login');
@@ -185,15 +188,41 @@ function AdminHomePage(){
         fetchBooks()
     }, [isAuthenticated]);
     
+    const handleProfileClick = () => {
+        navigate(`/admin/notification`); // Navigate to the user's profile page
+    };
     
-    
+    // 
 
     return (
         <div>
             <h1>Admin Home Page</h1>
             <h1>{user && isAuthenticated ? `Welcome back, ${user.firstName}` : 'Loading...'}</h1>
+            <div
+                className="admin-icon"
+                onClick={() => navigate('/admin/profile')}
+                title="Go to Profile"
+                style={{
+                    cursor: 'pointer',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    fontSize: '20px',
+                    marginBottom: '20px',
+                }}
+            >
+                {user && user.firstName.charAt(0).toUpperCase()}
+            </div>
             <button onClick={handleLogout}>Log out</button>
             <button onClick={() => openModal()}>Add Book</button>
+            <button onClick={handleProfileClick} className="notification-bell">
+                    🔔 Notifications
+            </button>
 
 
             {isModalOpen && (
